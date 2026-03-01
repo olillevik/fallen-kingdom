@@ -293,6 +293,30 @@ body {
   background: linear-gradient(180deg, #55bb55, #449944);
 }
 
+#overlay-btn2 {
+  background: linear-gradient(180deg, #5a5a6a, #44444f);
+  border: 2px solid #7a7a8a;
+  color: #f0e0c0;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-left: 12px;
+}
+
+#overlay-btn2:hover {
+  background: linear-gradient(180deg, #6a6a7a, #55555f);
+}
+
+#overlay-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 .hidden {
   display: none !important;
 }
@@ -357,6 +381,7 @@ body {
         <span id="lives-display">&#x2764;&#xFE0F; 20</span>
       </div>
       <div id="hud-center">
+        <span id="map-display" style="color:#ffaa00;margin-right:8px;"></span>
         <span id="wave-display">B&oslash;lge 1 / 10</span>
       </div>
       <div id="hud-right">
@@ -376,7 +401,10 @@ body {
       <div id="overlay-content">
         <h1 id="overlay-title"></h1>
         <p id="overlay-message"></p>
-        <button id="overlay-btn">Spill igjen</button>
+        <div id="overlay-buttons">
+          <button id="overlay-btn">Spill igjen</button>
+          <button id="overlay-btn2" class="hidden">Start p&aring; nytt</button>
+        </div>
       </div>
     </div>
   </div>
@@ -390,8 +418,6 @@ const CONFIG = {
   TILE_SIZE: 48,
   GRID_COLS: 16,
   GRID_ROWS: 12,
-  STARTING_GOLD: 150,
-  STARTING_LIVES: 20,
   FPS: 60,
   COLORS: {
     grass: '#4a7c3f',
@@ -509,6 +535,8 @@ const MAPS = {
     name: 'Gresslettene',
     cols: 16,
     rows: 12,
+    startingGold: 150,
+    startingLives: 20,
     path: [
       [0, 2], [3, 2], [3, 5], [7, 5], [7, 2], [11, 2],
       [11, 8], [5, 8], [5, 10], [15, 10],
@@ -522,44 +550,181 @@ const MAPS = {
       { type: 'rock', col: 8, row: 9 },
       { type: 'tree', col: 14, row: 7 },
     ],
+    waves: [
+      [{ type: 'goblin', count: 5, interval: 1000 }],
+      [{ type: 'goblin', count: 8, interval: 800 }],
+      [
+        { type: 'goblin', count: 5, interval: 900 },
+        { type: 'skeleton', count: 3, interval: 1200 },
+      ],
+      [
+        { type: 'goblin', count: 8, interval: 700 },
+        { type: 'skeleton', count: 5, interval: 1000 },
+      ],
+      [
+        { type: 'skeleton', count: 5, interval: 800 },
+        { type: 'troll', count: 1, interval: 2000 },
+      ],
+      [{ type: 'goblin', count: 15, interval: 400 }],
+      [
+        { type: 'skeleton', count: 8, interval: 700 },
+        { type: 'troll', count: 2, interval: 2500 },
+      ],
+      [
+        { type: 'goblin', count: 10, interval: 500 },
+        { type: 'skeleton', count: 6, interval: 800 },
+        { type: 'troll', count: 2, interval: 2000 },
+      ],
+      [
+        { type: 'skeleton', count: 5, interval: 600 },
+        { type: 'troll', count: 5, interval: 1500 },
+      ],
+      [
+        { type: 'goblin', count: 15, interval: 350 },
+        { type: 'skeleton', count: 10, interval: 600 },
+        { type: 'troll', count: 4, interval: 1800 },
+      ],
+    ],
+  },
+  darkforest: {
+    name: 'M\u00f8rkeskogen',
+    cols: 16,
+    rows: 12,
+    startingGold: 200,
+    startingLives: 18,
+    path: [
+      [0, 5], [4, 5], [4, 1], [10, 1], [10, 5],
+      [7, 5], [7, 9], [12, 9], [12, 6], [15, 6],
+    ],
+    decorations: [
+      { type: 'tree', col: 0, row: 0 },
+      { type: 'tree', col: 1, row: 1 },
+      { type: 'tree', col: 2, row: 0 },
+      { type: 'tree', col: 13, row: 0 },
+      { type: 'tree', col: 15, row: 2 },
+      { type: 'tree', col: 0, row: 8 },
+      { type: 'tree', col: 1, row: 10 },
+      { type: 'tree', col: 3, row: 11 },
+      { type: 'rock', col: 6, row: 3 },
+      { type: 'tree', col: 14, row: 10 },
+      { type: 'tree', col: 15, row: 9 },
+      { type: 'rock', col: 10, row: 7 },
+    ],
+    waves: [
+      [
+        { type: 'goblin', count: 8, interval: 700 },
+        { type: 'skeleton', count: 3, interval: 1000 },
+      ],
+      [
+        { type: 'skeleton', count: 8, interval: 600 },
+        { type: 'troll', count: 1, interval: 2000 },
+      ],
+      [
+        { type: 'goblin', count: 12, interval: 400 },
+        { type: 'skeleton', count: 5, interval: 800 },
+      ],
+      [
+        { type: 'skeleton', count: 8, interval: 500 },
+        { type: 'troll', count: 3, interval: 1500 },
+      ],
+      [
+        { type: 'goblin', count: 20, interval: 300 },
+        { type: 'troll', count: 2, interval: 2000 },
+      ],
+      [
+        { type: 'skeleton', count: 12, interval: 400 },
+        { type: 'troll', count: 4, interval: 1200 },
+      ],
+      [
+        { type: 'goblin', count: 15, interval: 350 },
+        { type: 'skeleton', count: 10, interval: 500 },
+        { type: 'troll', count: 3, interval: 1500 },
+      ],
+      [
+        { type: 'troll', count: 8, interval: 1000 },
+      ],
+      [
+        { type: 'goblin', count: 25, interval: 250 },
+        { type: 'skeleton', count: 15, interval: 400 },
+        { type: 'troll', count: 3, interval: 1500 },
+      ],
+      [
+        { type: 'skeleton', count: 20, interval: 300 },
+        { type: 'troll', count: 8, interval: 800 },
+      ],
+    ],
+  },
+  volcano: {
+    name: 'Vulkanpasset',
+    cols: 16,
+    rows: 12,
+    startingGold: 250,
+    startingLives: 15,
+    path: [
+      [8, 0], [8, 3], [3, 3], [3, 6], [13, 6],
+      [13, 3], [15, 3], [15, 9], [5, 9], [5, 11],
+    ],
+    decorations: [
+      { type: 'rock', col: 0, row: 0 },
+      { type: 'rock', col: 1, row: 2 },
+      { type: 'rock', col: 0, row: 5 },
+      { type: 'rock', col: 6, row: 1 },
+      { type: 'rock', col: 11, row: 1 },
+      { type: 'rock', col: 10, row: 4 },
+      { type: 'rock', col: 1, row: 8 },
+      { type: 'rock', col: 2, row: 10 },
+      { type: 'rock', col: 10, row: 10 },
+      { type: 'rock', col: 14, row: 11 },
+    ],
+    waves: [
+      [
+        { type: 'skeleton', count: 10, interval: 500 },
+        { type: 'troll', count: 2, interval: 1500 },
+      ],
+      [
+        { type: 'goblin', count: 20, interval: 250 },
+        { type: 'skeleton', count: 8, interval: 600 },
+      ],
+      [
+        { type: 'troll', count: 6, interval: 1000 },
+        { type: 'skeleton', count: 10, interval: 400 },
+      ],
+      [
+        { type: 'goblin', count: 30, interval: 200 },
+        { type: 'troll', count: 3, interval: 1500 },
+      ],
+      [
+        { type: 'skeleton', count: 20, interval: 300 },
+        { type: 'troll', count: 6, interval: 800 },
+      ],
+      [
+        { type: 'goblin', count: 25, interval: 200 },
+        { type: 'skeleton', count: 15, interval: 350 },
+        { type: 'troll', count: 5, interval: 1000 },
+      ],
+      [
+        { type: 'troll', count: 12, interval: 700 },
+      ],
+      [
+        { type: 'goblin', count: 30, interval: 180 },
+        { type: 'skeleton', count: 20, interval: 300 },
+        { type: 'troll', count: 6, interval: 900 },
+      ],
+      [
+        { type: 'skeleton', count: 25, interval: 250 },
+        { type: 'troll', count: 10, interval: 600 },
+      ],
+      [
+        { type: 'goblin', count: 40, interval: 150 },
+        { type: 'skeleton', count: 25, interval: 200 },
+        { type: 'troll', count: 12, interval: 500 },
+      ],
+    ],
   },
 };
 
-const WAVES = [
-  [{ type: 'goblin', count: 5, interval: 1000 }],
-  [{ type: 'goblin', count: 8, interval: 800 }],
-  [
-    { type: 'goblin', count: 5, interval: 900 },
-    { type: 'skeleton', count: 3, interval: 1200 },
-  ],
-  [
-    { type: 'goblin', count: 8, interval: 700 },
-    { type: 'skeleton', count: 5, interval: 1000 },
-  ],
-  [
-    { type: 'skeleton', count: 5, interval: 800 },
-    { type: 'troll', count: 1, interval: 2000 },
-  ],
-  [{ type: 'goblin', count: 15, interval: 400 }],
-  [
-    { type: 'skeleton', count: 8, interval: 700 },
-    { type: 'troll', count: 2, interval: 2500 },
-  ],
-  [
-    { type: 'goblin', count: 10, interval: 500 },
-    { type: 'skeleton', count: 6, interval: 800 },
-    { type: 'troll', count: 2, interval: 2000 },
-  ],
-  [
-    { type: 'skeleton', count: 5, interval: 600 },
-    { type: 'troll', count: 5, interval: 1500 },
-  ],
-  [
-    { type: 'goblin', count: 15, interval: 350 },
-    { type: 'skeleton', count: 10, interval: 600 },
-    { type: 'troll', count: 4, interval: 1800 },
-  ],
-];
+// Map progression order - add new map keys here to extend the campaign
+const MAP_ORDER = ['grasslands', 'darkforest', 'volcano'];
 
 // =============================================================================
 // sprites.js
@@ -1470,10 +1635,11 @@ class FloatingText {
 // =============================================================================
 
 class WaveManager {
-  constructor(grid) {
+  constructor(grid, waves) {
     this.grid = grid;
+    this.waves = waves;
     this.currentWave = -1;
-    this.totalWaves = WAVES.length;
+    this.totalWaves = waves.length;
     this.active = false;
     this.completed = false;
     this._groups = [];
@@ -1489,7 +1655,7 @@ class WaveManager {
     this.currentWave++;
     if (this.currentWave >= this.totalWaves) { this.completed = true; return; }
     this.active = true;
-    this._groups = WAVES[this.currentWave].map(g => ({ ...g }));
+    this._groups = this.waves[this.currentWave].map(g => ({ ...g }));
     this._groupIndex = 0;
     this._spawnedInGroup = 0;
     this._spawnTimer = 0;
@@ -1536,6 +1702,7 @@ class UI {
     this.goldDisplay = document.getElementById('gold-display');
     this.livesDisplay = document.getElementById('lives-display');
     this.waveDisplay = document.getElementById('wave-display');
+    this.mapDisplay = document.getElementById('map-display');
     this.speedBtn = document.getElementById('speed-btn');
     this.towerPanel = document.getElementById('tower-panel');
     this.actionBtn = document.getElementById('action-btn');
@@ -1545,6 +1712,7 @@ class UI {
     this.overlayTitle = document.getElementById('overlay-title');
     this.overlayMessage = document.getElementById('overlay-message');
     this.overlayBtn = document.getElementById('overlay-btn');
+    this.overlayBtn2 = document.getElementById('overlay-btn2');
     this.selectedTowerType = null;
     this.selectedTower = null;
     this.hoverCol = -1;
@@ -1610,7 +1778,8 @@ class UI {
     }, { passive: false });
     this.actionBtn.addEventListener('click', () => this.game.startNextWave());
     this.speedBtn.addEventListener('click', () => this.game.toggleSpeed());
-    this.overlayBtn.addEventListener('click', () => this.game.restart());
+    this.overlayBtn.addEventListener('click', () => this._onOverlayBtnClick());
+    this.overlayBtn2.addEventListener('click', () => this.game.restart());
     document.addEventListener('click', (e) => {
       if (!canvas.contains(e.target) && !this.towerPanel.contains(e.target) && !this.towerInfo.contains(e.target)) {
         this.selectedTowerType = null;
@@ -1712,11 +1881,22 @@ class UI {
 
   _hideTowerInfo() { this.towerInfo.classList.add('hidden'); }
 
+  _onOverlayBtnClick() {
+    if (this.game.state === 'victory' && !this.game.isLastMap) {
+      this.game.nextMap();
+    } else if (this.game.state === 'defeat') {
+      this.game.retryMap();
+    } else {
+      this.game.restart();
+    }
+  }
+
   updateHUD() {
     this.goldDisplay.textContent = `\u{1F4B0} ${this.game.gold}`;
     this.livesDisplay.textContent = `\u{2764}\u{FE0F} ${this.game.lives}`;
     const waveNum = Math.max(1, this.game.waveManager.waveNumber);
     this.waveDisplay.textContent = `B\u00f8lge ${waveNum} / ${this.game.waveManager.totalWaves}`;
+    this.mapDisplay.textContent = this.game.currentMapDef.name;
     this.speedBtn.textContent = `${this.game.gameSpeed}x`;
     this._updateTowerButtons();
     if (this.game.state === 'building') {
@@ -1730,16 +1910,31 @@ class UI {
   }
 
   showVictory() {
-    this.overlayTitle.textContent = 'Seier!';
     this.overlayTitle.className = 'victory';
-    this.overlayMessage.textContent = `Du forsvarte kongeriket! Gull igjen: ${this.game.gold}, Liv igjen: ${this.game.lives}`;
+    const mapName = this.game.currentMapDef.name;
+    if (this.game.isLastMap) {
+      this.overlayTitle.textContent = 'Du vant spillet!';
+      this.overlayMessage.textContent = `Alle baner fullf\u00f8rt! Gull igjen: ${this.game.gold}, Liv igjen: ${this.game.lives}`;
+      this.overlayBtn.textContent = 'Spill igjen';
+      this.overlayBtn2.classList.add('hidden');
+    } else {
+      this.overlayTitle.textContent = 'Seier!';
+      this.overlayMessage.textContent = `${mapName} fullf\u00f8rt! Gull igjen: ${this.game.gold}, Liv igjen: ${this.game.lives}`;
+      this.overlayBtn.textContent = 'Neste bane';
+      this.overlayBtn2.textContent = 'Start p\u00e5 nytt';
+      this.overlayBtn2.classList.remove('hidden');
+    }
     this.overlay.classList.remove('hidden');
   }
 
   showDefeat() {
+    const mapName = this.game.currentMapDef.name;
     this.overlayTitle.textContent = 'Nederlag!';
     this.overlayTitle.className = 'defeat';
-    this.overlayMessage.textContent = `Kongeriket har falt! Du n\u00e5dde b\u00f8lge ${this.game.waveManager.waveNumber}.`;
+    this.overlayMessage.textContent = `${mapName} - Kongeriket har falt! Du n\u00e5dde b\u00f8lge ${this.game.waveManager.waveNumber}.`;
+    this.overlayBtn.textContent = 'Pr\u00f8v igjen';
+    this.overlayBtn2.textContent = 'Start p\u00e5 nytt';
+    this.overlayBtn2.classList.remove('hidden');
     this.overlay.classList.remove('hidden');
   }
 
@@ -1771,12 +1966,29 @@ class Game {
   constructor() {
     this.canvas = document.getElementById('game-canvas');
     this.ctx = this.canvas.getContext('2d');
-    this.gold = CONFIG.STARTING_GOLD;
-    this.lives = CONFIG.STARTING_LIVES;
+    this.currentMapIndex = 0;
+    this._initMap(this.currentMapIndex);
+    this.ui = null;
+    this.lastTime = 0;
+    this._setupCanvas();
+    this.ui = new UI(this);
+    this.ui.updateHUD();
+    requestAnimationFrame((t) => this._gameLoop(t));
+  }
+
+  get currentMapKey() { return MAP_ORDER[this.currentMapIndex]; }
+  get currentMapDef() { return MAPS[this.currentMapKey]; }
+  get isLastMap() { return this.currentMapIndex >= MAP_ORDER.length - 1; }
+
+  _initMap(mapIndex) {
+    const mapKey = MAP_ORDER[mapIndex];
+    const mapDef = MAPS[mapKey];
+    this.gold = mapDef.startingGold;
+    this.lives = mapDef.startingLives;
     this.state = 'building';
     this.gameSpeed = 1;
-    this.grid = new Grid('grasslands');
-    this.waveManager = new WaveManager(this.grid);
+    this.grid = new Grid(mapKey);
+    this.waveManager = new WaveManager(this.grid, mapDef.waves);
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
@@ -1784,12 +1996,6 @@ class Game {
     this.floatingTexts = [];
     this.shakeTimer = 0;
     this.shakeIntensity = 0;
-    this.ui = null;
-    this.lastTime = 0;
-    this._setupCanvas();
-    this.ui = new UI(this);
-    this.ui.updateHUD();
-    requestAnimationFrame((t) => this._gameLoop(t));
   }
 
   _setupCanvas() {
@@ -1937,23 +2143,40 @@ class Game {
   }
 
   restart() {
-    this.gold = CONFIG.STARTING_GOLD;
-    this.lives = CONFIG.STARTING_LIVES;
-    this.state = 'building';
-    this.gameSpeed = 1;
-    this.grid = new Grid('grasslands');
-    this.waveManager = new WaveManager(this.grid);
-    this.towers = [];
-    this.enemies = [];
-    this.projectiles = [];
-    this.effects = [];
-    this.floatingTexts = [];
-    this.shakeTimer = 0;
-    this.shakeIntensity = 0;
+    this.currentMapIndex = 0;
+    this._initMap(this.currentMapIndex);
     Sprites.clearCache();
+    this._setupCanvas();
     this.ui.hideOverlay();
     this.ui.selectedTowerType = null;
     this.ui.selectedTower = null;
+    this.ui._hideTowerInfo();
+    this.ui.updateHUD();
+    this.ui._buildTowerPanel();
+  }
+
+  retryMap() {
+    this._initMap(this.currentMapIndex);
+    Sprites.clearCache();
+    this._setupCanvas();
+    this.ui.hideOverlay();
+    this.ui.selectedTowerType = null;
+    this.ui.selectedTower = null;
+    this.ui._hideTowerInfo();
+    this.ui.updateHUD();
+    this.ui._buildTowerPanel();
+  }
+
+  nextMap() {
+    if (this.isLastMap) return;
+    this.currentMapIndex++;
+    this._initMap(this.currentMapIndex);
+    Sprites.clearCache();
+    this._setupCanvas();
+    this.ui.hideOverlay();
+    this.ui.selectedTowerType = null;
+    this.ui.selectedTower = null;
+    this.ui._hideTowerInfo();
     this.ui.updateHUD();
     this.ui._buildTowerPanel();
   }
