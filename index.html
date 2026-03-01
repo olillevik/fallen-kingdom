@@ -1275,35 +1275,26 @@ class Tower {
 
   draw(ctx) {
     Sprites.drawTower(ctx, this.type, this.x, this.y, this.grid.tileSize, this.angle);
-    // Draw level stars
-    if (this.level > 0) {
-      const ts = this.grid.tileSize;
-      const starSize = 5;
-      const startX = this.x - ((this.level * starSize + (this.level - 1) * 2) / 2);
-      const starY = this.y + ts * 0.38;
-      ctx.fillStyle = '#ffd700';
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < this.level; i++) {
-        const sx = startX + i * (starSize + 2);
-        this._drawStar(ctx, sx + starSize / 2, starY, starSize / 2, 5);
-      }
-    }
-  }
-
-  _drawStar(ctx, cx, cy, r, points) {
+    // Draw level badge
+    const ts = this.grid.tileSize;
+    const bx = this.x + ts * 0.22;
+    const by = this.y - ts * 0.38;
+    const br = 7;
+    // Background circle
     ctx.beginPath();
-    for (let i = 0; i < points * 2; i++) {
-      const angle = (i * Math.PI) / points - Math.PI / 2;
-      const radius = i % 2 === 0 ? r : r * 0.4;
-      const x = cx + Math.cos(angle) * radius;
-      const y = cy + Math.sin(angle) * radius;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    const lvlColors = ['#888', '#22aa22', '#ffaa00'];
+    ctx.fillStyle = lvlColors[this.level] || '#ffaa00';
     ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+    // Level number
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.level + 1, bx, by + 0.5);
   }
 
   drawRange(ctx) {
