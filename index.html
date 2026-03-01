@@ -76,6 +76,32 @@ body {
   color: #ccbbaa;
 }
 
+#hud-right {
+  display: flex;
+  gap: 6px;
+}
+
+#pause-btn {
+  background: #5c4a3a;
+  border: 1px solid #7a6a5a;
+  color: #f0e0c0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 36px;
+}
+
+#pause-btn:hover {
+  background: #7a6a5a;
+}
+
+#pause-btn.active {
+  background: #aa6622;
+  border-color: #cc8833;
+}
+
 #speed-btn {
   background: #5c4a3a;
   border: 1px solid #7a6a5a;
@@ -346,6 +372,7 @@ body {
         <span id="wave-display">B&oslash;lge 1 / 10</span>
       </div>
       <div id="hud-right">
+        <button id="pause-btn" title="Pause">&#9646;&#9646;</button>
         <button id="speed-btn" title="Bytt hastighet">1x</button>
       </div>
     </div>
@@ -1663,6 +1690,7 @@ class UI {
     this.waveDisplay = document.getElementById('wave-display');
     this.mapDisplay = document.getElementById('map-display');
     this.speedBtn = document.getElementById('speed-btn');
+    this.pauseBtn = document.getElementById('pause-btn');
     this.towerPanel = document.getElementById('tower-panel');
     this.towerInfo = document.getElementById('tower-info');
     this.towerInfoContent = document.getElementById('tower-info-content');
@@ -1735,6 +1763,7 @@ class UI {
       this._onPointerMove(e.touches[0]);
     }, { passive: false });
     this.speedBtn.addEventListener('click', () => this.game.toggleSpeed());
+    this.pauseBtn.addEventListener('click', () => this.game.togglePause());
     this.overlayBtn.addEventListener('click', () => this._onOverlayBtnClick());
     this.overlayBtn2.addEventListener('click', () => this.game.restart());
     document.addEventListener('click', (e) => {
@@ -1858,6 +1887,8 @@ class UI {
     this.waveDisplay.textContent = `B\u00f8lge ${waveNum} / ${this.game.waveManager.totalWaves}`;
     this.mapDisplay.textContent = this.game.currentMapDef.name;
     this.speedBtn.textContent = `${this.game.gameSpeed}x`;
+    this.pauseBtn.classList.toggle('active', this.game.paused);
+    this.pauseBtn.textContent = this.game.paused ? '\u25B6' : '\u23F8';
     this._updateTowerButtons();
   }
 
@@ -1938,7 +1969,9 @@ class Game {
     this.gold = mapDef.startingGold;
     this.lives = mapDef.startingLives;
     this.state = 'wave';
+    this.paused = false;
     this.gameSpeed = 1;
+    this.waveDelay = 5.0; // seconds before first wave spawns
     this.grid = new Grid(mapKey);
     this.waveManager = new WaveManager(this.grid, mapDef.waves);
     this.waveManager.startNextWave();
@@ -1973,13 +2006,18 @@ class Game {
   _gameLoop(timestamp) {
     const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1) * this.gameSpeed;
     this.lastTime = timestamp;
-    if (this.state !== 'victory' && this.state !== 'defeat') this._update(dt);
+    if (!this.paused && this.state !== 'victory' && this.state !== 'defeat') this._update(dt);
     this._draw();
     this.ui.updateHUD();
     requestAnimationFrame((t) => this._gameLoop(t));
   }
 
   _update(dt) {
+    // Countdown before first enemies spawn
+    if (this.waveDelay > 0) {
+      this.waveDelay -= dt;
+      return;
+    }
     if (this.state === 'wave') {
       const spawned = this.waveManager.update(dt);
       this.enemies.push(...spawned);
@@ -2055,6 +2093,34 @@ class Game {
     for (const effect of this.effects) effect.draw(ctx);
     for (const ft of this.floatingTexts) ft.draw(ctx);
     this.ui.drawCanvasUI(ctx);
+    // Countdown before first enemies
+    if (this.waveDelay > 0) {
+      const secs = Math.ceil(this.waveDelay);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 64px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(secs, this.canvas.width / 2, this.canvas.height / 2 - 20);
+      ctx.fillStyle = '#f0e0c0';
+      ctx.font = 'bold 18px monospace';
+      ctx.fillText('Plasser t\u00e5rn!', this.canvas.width / 2, this.canvas.height / 2 + 30);
+      ctx.restore();
+    }
+    // Pause indicator
+    if (this.paused) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillStyle = '#f0e0c0';
+      ctx.font = 'bold 36px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('PAUSE', this.canvas.width / 2, this.canvas.height / 2);
+      ctx.restore();
+    }
     ctx.restore();
   }
 
@@ -2089,6 +2155,11 @@ class Game {
     if (this.gameSpeed === 1) this.gameSpeed = 2;
     else if (this.gameSpeed === 2) this.gameSpeed = 3;
     else this.gameSpeed = 1;
+  }
+
+  togglePause() {
+    if (this.state === 'victory' || this.state === 'defeat') return;
+    this.paused = !this.paused;
   }
 
   restart() {
