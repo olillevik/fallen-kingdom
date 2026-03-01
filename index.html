@@ -1253,17 +1253,6 @@ class Tower {
   }
 
   draw(ctx) {
-    // Flash glow when shooting
-    if (this.flashTimer > 0) {
-      const alpha = this.flashTimer / 0.15;
-      const flashColor = this.type === 'ice' ? 'rgba(135,206,235,' : this.type === 'cannon' ? 'rgba(255,100,0,' : 'rgba(255,255,100,';
-      ctx.save();
-      ctx.fillStyle = flashColor + (alpha * 0.4) + ')';
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.grid.tileSize * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
     Sprites.drawTower(ctx, this.type, this.x, this.y, this.grid.tileSize, this.angle);
   }
 
