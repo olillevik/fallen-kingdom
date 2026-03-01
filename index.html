@@ -1205,6 +1205,8 @@ class Tower {
     this.cooldown = 0;
     this.target = null;
     this.angle = 0;
+    this.kills = 0;
+    this.flashTimer = 0;
   }
 
   get rangePixels() { return this.range * this.grid.tileSize; }
@@ -1212,12 +1214,14 @@ class Tower {
 
   update(dt, enemies, projectiles) {
     if (this.cooldown > 0) this.cooldown -= dt;
+    if (this.flashTimer > 0) this.flashTimer -= dt;
     this.target = this._findTarget(enemies);
     if (this.target) {
       this.angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
       if (this.cooldown <= 0) {
         this._fire(projectiles);
         this.cooldown = 1 / this.fireRate;
+        this.flashTimer = 0.15;
       }
     }
   }
@@ -1244,11 +1248,22 @@ class Tower {
       this.type, this.x, this.y, this.target,
       this.projectileSpeed * this.grid.tileSize,
       this.damage, this.aoe * this.grid.tileSize,
-      this.slow, this.slowDuration,
+      this.slow, this.slowDuration, this,
     ));
   }
 
   draw(ctx) {
+    // Flash glow when shooting
+    if (this.flashTimer > 0) {
+      const alpha = this.flashTimer / 0.15;
+      const flashColor = this.type === 'ice' ? 'rgba(135,206,235,' : this.type === 'cannon' ? 'rgba(255,100,0,' : 'rgba(255,255,100,';
+      ctx.save();
+      ctx.fillStyle = flashColor + (alpha * 0.4) + ')';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.grid.tileSize * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     Sprites.drawTower(ctx, this.type, this.x, this.y, this.grid.tileSize, this.angle);
   }
 
@@ -1262,7 +1277,7 @@ class Tower {
 // =============================================================================
 
 class Projectile {
-  constructor(towerType, x, y, target, speed, damage, aoeRadius, slowFactor, slowDuration) {
+  constructor(towerType, x, y, target, speed, damage, aoeRadius, slowFactor, slowDuration, sourceTower) {
     this.towerType = towerType;
     this.x = x;
     this.y = y;
@@ -1272,6 +1287,7 @@ class Projectile {
     this.aoeRadius = aoeRadius;
     this.slowFactor = slowFactor;
     this.slowDuration = slowDuration;
+    this.sourceTower = sourceTower || null;
     this.alive = true;
     this.angle = 0;
     this.targetX = target.x;
@@ -1305,14 +1321,18 @@ class Projectile {
         const dx = enemy.x - this.targetX;
         const dy = enemy.y - this.targetY;
         if (Math.sqrt(dx * dx + dy * dy) <= this.aoeRadius) {
+          const wasAlive = enemy.alive;
           enemy.takeDamage(this.damage);
+          if (wasAlive && !enemy.alive && this.sourceTower) enemy._killedByTower = this.sourceTower;
           if (this.slowFactor > 0) enemy.applySlow(this.slowFactor, this.slowDuration);
         }
       }
       effects.push(new Effect('explosion', this.targetX, this.targetY, this.aoeRadius, 0.4));
     } else {
       if (this.target && this.target.alive) {
+        const wasAlive = this.target.alive;
         this.target.takeDamage(this.damage);
+        if (wasAlive && !this.target.alive && this.sourceTower) this.target._killedByTower = this.sourceTower;
         if (this.slowFactor > 0) this.target.applySlow(this.slowFactor, this.slowDuration);
       }
     }
@@ -1345,6 +1365,41 @@ class Effect {
     if (this.type === 'explosion') {
       Sprites.drawExplosion(ctx, this.x, this.y, this.radius, this.elapsed / this.duration);
     }
+  }
+}
+
+class FloatingText {
+  constructor(text, x, y, color = '#ffd700', duration = 1.0) {
+    this.text = text;
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.duration = duration;
+    this.elapsed = 0;
+    this.alive = true;
+  }
+
+  update(dt) {
+    this.elapsed += dt;
+    if (this.elapsed >= this.duration) this.alive = false;
+    this.y -= 40 * dt; // float upward
+  }
+
+  draw(ctx) {
+    if (!this.alive) return;
+    const progress = this.elapsed / this.duration;
+    const alpha = 1 - progress;
+    const scale = 1 + progress * 0.3;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    ctx.font = `bold ${Math.round(14 * scale)}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.strokeText(this.text, this.x, this.y);
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.restore();
   }
 }
 
@@ -1547,6 +1602,7 @@ class UI {
       <div class="stat"><span class="stat-label">Skuddrate:</span> <span class="stat-value">${def.fireRate}/s</span></div>
       ${def.aoe > 0 ? `<div class="stat"><span class="stat-label">Omr\u00e5de:</span> <span class="stat-value">${def.aoe} tiles</span></div>` : ''}
       ${def.slow > 0 ? `<div class="stat"><span class="stat-label">Saktning:</span> <span class="stat-value">${Math.round(def.slow * 100)}%</span></div>` : ''}
+      <div class="stat"><span class="stat-label">Drept:</span> <span class="stat-value">${tower.kills}</span></div>
       <button id="sell-btn">Selg (${tower.sellValue} gull)</button>
     `;
     const rect = this.game.canvas.getBoundingClientRect();
@@ -1634,6 +1690,9 @@ class Game {
     this.enemies = [];
     this.projectiles = [];
     this.effects = [];
+    this.floatingTexts = [];
+    this.shakeTimer = 0;
+    this.shakeIntensity = 0;
     this.ui = null;
     this.lastTime = 0;
     this._setupCanvas();
@@ -1690,16 +1749,31 @@ class Game {
     for (const tower of this.towers) tower.update(dt, this.enemies, this.projectiles);
     for (const proj of this.projectiles) proj.update(dt, this.enemies, this.effects);
     for (const effect of this.effects) effect.update(dt);
+    for (const ft of this.floatingTexts) ft.update(dt);
+    // Update screen shake
+    if (this.shakeTimer > 0) this.shakeTimer -= dt;
     // Collect rewards AFTER projectiles have dealt damage
     for (const enemy of this.enemies) {
       if (!enemy.alive && !enemy.reachedEnd && !enemy._rewarded) {
         this.gold += enemy.reward;
         enemy._rewarded = true;
+        // Floating gold text
+        this.floatingTexts.push(new FloatingText(`+${enemy.reward}`, enemy.x, enemy.y - 10));
+        // Screen shake for troll kills
+        if (enemy.type === 'troll') {
+          this.shakeTimer = 0.3;
+          this.shakeIntensity = 6;
+        }
+        // Credit kill to the tower whose projectile killed this enemy
+        if (enemy._killedByTower) {
+          enemy._killedByTower.kills++;
+        }
       }
     }
     this.enemies = this.enemies.filter(e => e.alive);
     this.projectiles = this.projectiles.filter(p => p.alive);
     this.effects = this.effects.filter(e => e.alive);
+    this.floatingTexts = this.floatingTexts.filter(ft => ft.alive);
     if (this.state === 'wave' && !this.waveManager.active && this.enemies.length === 0) {
       if (this.waveManager.isLastWave) {
         this.state = 'victory';
@@ -1713,12 +1787,23 @@ class Game {
   _draw() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    // Screen shake
+    ctx.save();
+    if (this.shakeTimer > 0) {
+      const intensity = this.shakeIntensity * (this.shakeTimer / 0.3);
+      ctx.translate(
+        (Math.random() - 0.5) * intensity * 2,
+        (Math.random() - 0.5) * intensity * 2
+      );
+    }
     this.grid.draw(ctx);
     for (const tower of this.towers) tower.draw(ctx);
     for (const enemy of this.enemies) enemy.draw(ctx);
     for (const proj of this.projectiles) proj.draw(ctx);
     for (const effect of this.effects) effect.draw(ctx);
+    for (const ft of this.floatingTexts) ft.draw(ctx);
     this.ui.drawCanvasUI(ctx);
+    ctx.restore();
   }
 
   startNextWave() {
@@ -1763,6 +1848,9 @@ class Game {
     this.enemies = [];
     this.projectiles = [];
     this.effects = [];
+    this.floatingTexts = [];
+    this.shakeTimer = 0;
+    this.shakeIntensity = 0;
     Sprites.clearCache();
     this.ui.hideOverlay();
     this.ui.selectedTowerType = null;
