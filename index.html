@@ -157,39 +157,6 @@ body {
   font-size: 10px;
 }
 
-#action-btn {
-  position: absolute;
-  bottom: 90px;
-  right: 12px;
-  background: linear-gradient(180deg, #44aa44, #338833);
-  border: 2px solid #55cc55;
-  color: #fff;
-  padding: 8px 18px;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  z-index: 10;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  transition: background 0.15s;
-}
-
-#action-btn:hover {
-  background: linear-gradient(180deg, #55bb55, #449944);
-}
-
-#action-btn:disabled {
-  background: #666;
-  border-color: #888;
-  cursor: default;
-  opacity: 0.6;
-}
-
-#action-btn.hidden {
-  display: none;
-}
-
 #tower-info {
   position: absolute;
   background: rgba(42, 31, 20, 0.95);
@@ -348,12 +315,6 @@ body {
     height: 26px;
   }
 
-  #action-btn {
-    bottom: 80px;
-    font-size: 13px;
-    padding: 7px 14px;
-  }
-
   #overlay-title {
     font-size: 28px;
   }
@@ -390,8 +351,6 @@ body {
     </div>
 
     <div id="tower-panel"></div>
-
-    <button id="action-btn">Start b&oslash;lge!</button>
 
     <div id="tower-info" class="hidden">
       <div id="tower-info-content"></div>
@@ -1705,7 +1664,6 @@ class UI {
     this.mapDisplay = document.getElementById('map-display');
     this.speedBtn = document.getElementById('speed-btn');
     this.towerPanel = document.getElementById('tower-panel');
-    this.actionBtn = document.getElementById('action-btn');
     this.towerInfo = document.getElementById('tower-info');
     this.towerInfoContent = document.getElementById('tower-info-content');
     this.overlay = document.getElementById('overlay');
@@ -1776,7 +1734,6 @@ class UI {
       e.preventDefault();
       this._onPointerMove(e.touches[0]);
     }, { passive: false });
-    this.actionBtn.addEventListener('click', () => this.game.startNextWave());
     this.speedBtn.addEventListener('click', () => this.game.toggleSpeed());
     this.overlayBtn.addEventListener('click', () => this._onOverlayBtnClick());
     this.overlayBtn2.addEventListener('click', () => this.game.restart());
@@ -1809,18 +1766,21 @@ class UI {
     const grid = this.game.grid;
     const { col, row } = grid.pixelToGrid(x, y);
     if (col < 0 || col >= grid.cols || row < 0 || row >= grid.rows) return;
+    // Check if there's a tower on this tile (takes priority even when placing)
+    const existingTower = this.game.getTowerAt(col, row);
+    if (existingTower) {
+      this.selectedTowerType = null;
+      this.selectedTower = existingTower;
+      this._showTowerInfo(existingTower);
+      this._updateTowerButtons();
+      return;
+    }
     if (this.selectedTowerType) {
       this.game.tryBuildTower(this.selectedTowerType, col, row);
       this._updateTowerButtons();
     } else {
-      const tower = this.game.getTowerAt(col, row);
-      if (tower) {
-        this.selectedTower = tower;
-        this._showTowerInfo(tower);
-      } else {
-        this.selectedTower = null;
-        this._hideTowerInfo();
-      }
+      this.selectedTower = null;
+      this._hideTowerInfo();
     }
   }
 
@@ -1899,14 +1859,6 @@ class UI {
     this.mapDisplay.textContent = this.game.currentMapDef.name;
     this.speedBtn.textContent = `${this.game.gameSpeed}x`;
     this._updateTowerButtons();
-    if (this.game.state === 'building') {
-      const nextIsLast = this.game.waveManager.currentWave + 1 >= this.game.waveManager.totalWaves - 1;
-      this.actionBtn.textContent = nextIsLast ? 'Siste b\u00f8lge!' : 'Start b\u00f8lge!';
-      this.actionBtn.disabled = false;
-      this.actionBtn.classList.remove('hidden');
-    } else {
-      this.actionBtn.classList.add('hidden');
-    }
   }
 
   showVictory() {
@@ -1985,10 +1937,11 @@ class Game {
     const mapDef = MAPS[mapKey];
     this.gold = mapDef.startingGold;
     this.lives = mapDef.startingLives;
-    this.state = 'building';
+    this.state = 'wave';
     this.gameSpeed = 1;
     this.grid = new Grid(mapKey);
     this.waveManager = new WaveManager(this.grid, mapDef.waves);
+    this.waveManager.startNextWave();
     this.towers = [];
     this.enemies = [];
     this.projectiles = [];
@@ -2076,7 +2029,9 @@ class Game {
         this.state = 'victory';
         this.ui.showVictory();
       } else {
-        this.state = 'building';
+        // Auto-start next wave
+        this.state = 'wave';
+        this.waveManager.startNextWave();
       }
     }
   }
@@ -2101,12 +2056,6 @@ class Game {
     for (const ft of this.floatingTexts) ft.draw(ctx);
     this.ui.drawCanvasUI(ctx);
     ctx.restore();
-  }
-
-  startNextWave() {
-    if (this.state !== 'building') return;
-    this.state = 'wave';
-    this.waveManager.startNextWave();
   }
 
   tryBuildTower(typeKey, col, row) {
